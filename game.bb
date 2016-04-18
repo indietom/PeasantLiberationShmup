@@ -194,15 +194,79 @@ Type enemy
 	
 	Field typeOf
 	
+	Field health
+	
+	Field hitCount
+	
+	Field hitBoxX
+	Field hitBoxY
+	Field hitBoxWidth
+	Field hitBoxHeight
+	
+	Field imx
+	Field imy
+	Field width
+	Field height
+	
 	Field destroy 
 End Type
+
+Function addEnemy(x2#, y2#, typeOf2)
+	e.enemy = New enemy
+	e\x = x2
+	e\y = y2
+	
+	e\typeOf = typeOf2
+	
+	If e\typeOf = KNIGHT Then
+		e\health = 1
+		
+		e\imx = 1
+		e\imy = frame(1, 24)
+		e\width = 24
+		e\height = 24
+		
+		e\hitBoxX = 7
+		e\hitBoxY = 4
+		e\hitBoxWidth = 7
+		e\hitBoxHeight = 11
+	End If
+End Function
+
+Function updateEnemy()
+	For e.enemy = Each enemy
+		For p.projectile = Each projectile
+			If p\enemy = 0 And e\hitCount <= 0 Then 
+				If collision(p\x, p\y, p\size, p\size, e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight) Then
+					e\health = e\health - p\damage
+					If e\health > 0 Then e\hitCount = 1
+					p\destroy = 1
+				End If
+			End If
+		Next
+		
+		If e\health <= 0 Then 
+			e\destroy = 1
+		End If
+		
+		If e\destroy Then Delete e
+	Next
+End Function
+
+Function drawEnemy()
+	For e.enemy = Each enemy
+		DrawImageRect(spritesheet, e\x, e\y, e\imx, e\imy, e\width, e\height)
+	Next
+End Function 
 
 Function update()
 	updatePlayer()
 	updateProjectile()
+	updateEnemy()
 End Function
 
 Function draw()
+	drawEnemy()
 	drawProjectile()
 	drawPlayer()
 End Function 
@@ -216,6 +280,8 @@ While Not KeyHit(1)
 		Rect 0, 0, WIN_W, WIN_H
 		draw()
 		update()
+		
+		If MouseHit(1) Then addEnemy(MouseX(), MouseY(), KNIGHT)
 		
 		If KeyHit(59) Then
 			If fullScreen = 2 Then
