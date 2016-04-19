@@ -31,6 +31,14 @@ Function distanceTo#(x1, y1, x2, y2)
 	Return Sqr((x1-x2)^2+(y1-y2)^2)
 End Function 
 
+Function AngleToDirection(angle, aim)
+	If angle < -360 And aim = 0 Then angle = angle + 360
+	
+	If aim Then angle = angle - 180
+	
+ 	Return (angle / 45)*-1
+End Function
+
 Function frame%(cell, size)
 	Return cell*size+1+cell
 End Function
@@ -118,6 +126,18 @@ Function drawPlayer()
 	Next
 End Function
 
+Function getAngleToPlayer#(x2#, y2#)
+	Local px# 
+	Local py# 
+	
+	For p.player = Each player
+		px# = p\x + 16
+		py# = p\y + 16
+	Next
+	
+	Return ATan2(py-y2, px-x2)
+End Function
+
 Type projectile
 	Field x#
 	Field y#
@@ -166,6 +186,8 @@ Function updateProjectile()
 		p\x = p\x + p\velX
 		p\y = p\y + p\velY
 		
+		If p\x < -p\size Or p\x >= WIN_W Or p\y < -p\size Or p\y > WIN_H Then p\destroy = 1 
+		
 		If p\destroy Then Delete p
 	Next
 End Function
@@ -192,8 +214,16 @@ Type enemy
 	Field shootAngle#
 	Field projectileSpeed#
 	
+	Field fireRate
+	Field maxFireRate
+	Field shoot
+	Field attacking
+	
 	Field typeOf
 	
+	Field dead
+	Field deadImx
+	Field deadImy
 	Field health
 	
 	Field hitCount
@@ -218,35 +248,74 @@ Function addEnemy(x2#, y2#, typeOf2)
 	
 	e\typeOf = typeOf2
 	
+	e\attacking = 1
+	
 	If e\typeOf = KNIGHT Then
-		e\health = 1
+		e\health = 3
+		
+		e\maxFireRate = 32
 		
 		e\imx = 1
 		e\imy = frame(1, 24)
+		e\deadImx = frame(4, 24)
+		e\deadImy = e\imy
 		e\width = 24
 		e\height = 24
 		
-		e\hitBoxX = 7
-		e\hitBoxY = 4
-		e\hitBoxWidth = 7
-		e\hitBoxHeight = 11
+		e\hitBoxX = 6
+		e\hitBoxY = 5
+		e\hitBoxWidth = 12
+		e\hitBoxHeight = 17
 	End If
 End Function
 
 Function updateEnemy()
 	For e.enemy = Each enemy
-		For p.projectile = Each projectile
-			If p\enemy = 0 And e\hitCount <= 0 Then 
-				If collision(p\x, p\y, p\size, p\size, e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight) Then
-					e\health = e\health - p\damage
-					If e\health > 0 Then e\hitCount = 1
-					p\destroy = 1
+		If e\dead = 0 Then 
+			For p.projectile = Each projectile
+				If p\enemy = 0 And e\hitCount <= 0 Then 
+					If collision(p\x, p\y, p\size, p\size, e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight) Then
+						e\health = e\health - p\damage
+						If e\health > 0 Then e\hitCount = 1
+						p\destroy = 1
+					End If
 				End If
-			End If
-		Next
+			Next
+		End If
+		
+		If e\hitCount >= 1 Then
+			e\hitCount = e\hitCount + 1
+			If e\hitCount >= 4 Then e\hitCount = 0
+		End If
 		
 		If e\health <= 0 Then 
-			e\destroy = 1
+			e\dead = 1
+		End If
+		
+		If e\maxFireRate > 0 And e\attacking Then
+			e\fireRate = e\fireRate + 1
+			
+			If e\fireRate >= e\maxFireRate Then
+				e\shoot = 1
+				e\fireRate = 0
+			End If
+		End If
+		
+		If e\typeOf = KNIGHT Then
+			If e\shoot Then
+				e\shootAngle = getAngleToPlayer(e\x+e\width/2, e\y+e\height/2)
+				addProjectile(e\x+e\width/2-4, e\y+e\height/2-4, e\shootAngle, 5, 1, 50+frame(AngleToDirection(e\shootAngle, 1), 8), 76, 8, 1)
+				e\shoot = 0
+			End If
+		End If
+		
+		If e\dead Then
+			e\speed = 0
+			e\maxFireRate = 0
+			e\attacking = 0
+			
+			e\imx = e\deadImx
+			e\imy = e\deadImy
 		End If
 		
 		If e\destroy Then Delete e
@@ -256,6 +325,10 @@ End Function
 Function drawEnemy()
 	For e.enemy = Each enemy
 		DrawImageRect(spritesheet, e\x, e\y, e\imx, e\imy, e\width, e\height)
+		If e\hitCount > 0 Then 
+			Color 255, 0, 0
+			Rect e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight
+		End If 
 	Next
 End Function 
 
@@ -282,15 +355,6 @@ While Not KeyHit(1)
 		update()
 		
 		If MouseHit(1) Then addEnemy(MouseX(), MouseY(), KNIGHT)
-		
-		If KeyHit(59) Then
-			If fullScreen = 2 Then
-				fullScreen = 2
-			Else
-				fullScreen = 2
-			End If
-			Graphics WIN_W, WIN_H, 8, fullScreen
-		End If
 	Flip
 Wend
 
