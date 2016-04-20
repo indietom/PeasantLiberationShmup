@@ -62,6 +62,9 @@ Type player
 	Field shadowOffsetX
 	Field shadowOffsetY
 	
+	Field movingToX
+	Field movingToY
+	
 	Field leftKey
 	Field rightKey
 	Field downKey
@@ -93,20 +96,27 @@ End Function
 
 Function updatePlayer()
 	For p.player = Each player
+		p\movingToX = 0
+		p\movingToY = 0
+		
 		If KeyDown(p\leftKey) Then
 			p\x = p\x - p\speed
+			p\movingToX = p\movingToX - p\speed
 		End If
 		
 		If KeyDown(p\rightKey) Then
 			p\x = p\x + p\speed
+			p\movingToX = p\movingToX + p\speed
 		End If
 		
 		If KeyDown(p\upKey) Then
 			p\y = p\y - p\speed
+			p\movingToY = p\movingToY - p\speed
 		End If
 		
 		If KeyDown(p\downKey) Then
 			p\y = p\y + p\speed
+			p\movingToY = p\movingToY + p\speed
 		End If
 		
 		If KeyHit(p\shootKey) Then
@@ -123,16 +133,23 @@ Function drawPlayer()
 	For p.player = Each player
 		DrawImageRect(spritesheet, p\x+p\shadowOffsetX, p\y+p\shadowOffsetY, frame(1, 24), p\imy, 24, 24)
 		DrawImageRect(spritesheet, p\x, p\y, p\imx, p\imy, 24, 24)
+		Color 255, 255, 255
 	Next
 End Function
 
-Function getAngleToPlayer#(x2#, y2#)
+Function getDistanceToPlayer#(x2, y2)
+	For p.player = Each player
+		Return distanceTo(p\x, p\y, x2, y2)
+	Next
+End Function
+
+Function getAngleToPlayer#(x2#, y2#, time)
 	Local px# 
 	Local py# 
 	
 	For p.player = Each player
-		px# = p\x + 16
-		py# = p\y + 16
+		px# = p\movingToX*time+p\x + 16
+		py# = p\movingToY*time+p\y + 16
 	Next
 	
 	Return ATan2(py-y2, px-x2)
@@ -303,7 +320,7 @@ Function updateEnemy()
 		
 		If e\typeOf = KNIGHT Then
 			If e\shoot Then
-				e\shootAngle = getAngleToPlayer(e\x+e\width/2, e\y+e\height/2)
+				e\shootAngle = getAngleToPlayer(e\x+e\width/2, e\y+e\height/2, getDistanceToPlayer(e\x, e\y)/8)
 				addProjectile(e\x+e\width/2-4, e\y+e\height/2-4, e\shootAngle, 5, 1, 50+frame(AngleToDirection(e\shootAngle, 1), 8), 76, 8, 1)
 				e\shoot = 0
 			End If
