@@ -65,6 +65,8 @@ Type player
 	Field movingToX
 	Field movingToY
 	
+	Field dead
+	
 	Field leftKey
 	Field rightKey
 	Field downKey
@@ -96,6 +98,15 @@ End Function
 
 Function updatePlayer()
 	For p.player = Each player
+		For pr.projectile = Each projectile
+			If pr\enemy Then
+				If collision(pr\x, pr\y, pr\size, pr\size, p\x, p\y, 24, 24) Then
+					p\dead = 1
+					pr\destroy = 1
+				End If
+			End If
+		Next
+		
 		p\movingToX = 0
 		p\movingToY = 0
 		
@@ -250,6 +261,11 @@ Type enemy
 	Field hitBoxWidth
 	Field hitBoxHeight
 	
+	Field currentFrame
+	Field animationCount
+	Field maxAnimationCount
+	Field maxFrame
+	
 	Field imx
 	Field imy
 	Field width
@@ -348,6 +364,46 @@ Function drawEnemy()
 		End If 
 	Next
 End Function 
+
+Type helper
+	Field x#
+	Field y#
+	
+	Field haveBeenLiberated
+	
+	Field lifeTime
+	Field maxLifeTime
+	
+	Field health
+	Field dead
+	
+	Field fireRate
+	Field maxFireRate
+	
+	Field shootAngel#
+	
+	Field targetPositionX#
+	Field targetPositionY#
+	
+	Field currentFrame
+	Field animationCount
+	Field maxAnimationCount
+	Field maxFrame
+	
+	Field destroy
+End Type
+
+Function addHelper()
+
+End Function
+
+Function updateHelper()
+
+End Function
+
+Function drawHelper()
+
+End Function
 
 Function update()
 	updatePlayer()
