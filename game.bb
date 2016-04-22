@@ -365,11 +365,53 @@ Function drawEnemy()
 	Next
 End Function 
 
+Function enemiesAlive()
+	Local count
+	
+	For e.enemy = Each enemy 
+		If e\dead = 0 Then count = count + 1
+	Next
+	
+	Return count
+End Function
+
+Function aimAtNearestEnemy#(x2#, y2#)
+	Local ex#
+	Local ey#
+	
+	For e.enemy = Each enemy
+		For e2.enemy = Each enemy
+			If e <> e2 Then
+				If e\dead = 0 And e2\dead = 0 Then 
+					If distanceTo(e\x, e\y, x2, y2) < distanceTo(e2\x, e2\y, x2, y2) Then
+						ex = e\x
+						ey = e\y
+					End If
+				End If
+				
+				If enemiesAlive() = 1 Then
+					If e\dead = 0 Then 
+						ex = e\x
+						ey = e\y
+					End If
+					
+					If e2\dead = 0 Then
+						ex = e2\x
+						ey = e2\y
+					End If
+				End If
+			End If	
+		Next
+	Next
+	
+	Return ATan2(ey - y2, ex - x2)
+End Function 
+
 Type helper
 	Field x#
 	Field y#
 	
-	Field haveBeenLiberated
+	Field liberated
 	
 	Field lifeTime
 	Field maxLifeTime
@@ -385,6 +427,9 @@ Type helper
 	Field targetPositionX#
 	Field targetPositionY#
 	
+	Field imx
+	Field imy
+	
 	Field currentFrame
 	Field animationCount
 	Field maxAnimationCount
@@ -393,26 +438,82 @@ Type helper
 	Field destroy
 End Type
 
-Function addHelper()
-
+Function addHelper(x2#, y2#)
+	h.helper = New helper
+	h\x = x2
+	h\y = y2
+	
+	h\health = 2
+	
+	h\maxFireRate = 16
+	
+	Local targetDistance# = Rnd(16, 32)
+	Local targetAngle# = Rnd(-360, 0)
+	
+	h\targetPositionX = Cos(targetAngle) * targetDistance
+	h\targetPositionY = Sin(targetAngle) * targetDistance
+	
+	h\imx = frame(0, 24)
+	h\imy = frame(0, 24)
+	
+	h\maxFrame = 4
 End Function
 
 Function updateHelper()
-
+	For h.helper = Each helper
+		h\imx = frame(h\currentFrame, 24)
+		
+		h\fireRate = h\fireRate + 1
+		If h\fireRate >= h\maxFireRate Then
+			If enemiesAlive() > 0 Then addProjectile(h\x, h\y, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
+			h\fireRate = 0 
+		End If 
+		
+		If h\liberated Then
+			For p.player = Each player
+				h\x = lerp(h\x, p\x+h\targetPositionX, 0.1)
+				h\y = lerp(h\y, p\y+h\targetPositionY, 0.1)
+			Next
+			
+			For e.enemy = Each enemy = Each enemy
+				If e\dead = 0 Then
+					
+				End If
+			Next
+			
+			h\animationCount = h\animationCount + 1
+		Else
+			For p.player = Each player
+				If collision(p\x, p\y, 24, 24, h\x, h\y, 24, 24) Then
+					h\liberated = 1
+				End If
+			Next
+		End If
+		
+		If h\animationCount >= 4 Then
+			h\currentFrame = h\currentFrame + 1
+			If h\currentFrame >= h\maxFrame Then h\currentFrame = 0
+			h\animationCount = 0
+		End If
+	Next
 End Function
 
 Function drawHelper()
-
+	For h.helper = Each helper
+		DrawImageRect(spritesheet, h\x, h\y, h\imx, h\imy, 24, 24)	
+	Next
 End Function
 
 Function update()
 	updatePlayer()
 	updateProjectile()
 	updateEnemy()
+	updateHelper()
 End Function
 
 Function draw()
 	drawEnemy()
+	drawHelper()
 	drawProjectile()
 	drawPlayer()
 End Function 
@@ -428,6 +529,7 @@ While Not KeyHit(1)
 		update()
 		
 		If MouseHit(1) Then addEnemy(MouseX(), MouseY(), KNIGHT)
+		If MouseHit(2) Then addHelper(MouseX(), MouseY())
 	Flip
 Wend
 
