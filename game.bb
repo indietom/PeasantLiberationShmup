@@ -461,26 +461,35 @@ End Function
 
 Function updateHelper()
 	For h.helper = Each helper
-		h\imx = frame(h\currentFrame, 24)
+		If h\dead = 0 Then
+			h\imx = frame(h\currentFrame, 24)
+		Else
+			h\imx = frame(4, 24)
+		End If
 		
-		h\fireRate = h\fireRate + 1
-		If h\fireRate >= h\maxFireRate Then
+		If h\fireRate >= h\maxFireRate And h\dead = 0 Then
 			If enemiesAlive() > 0 Then addProjectile(h\x, h\y, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
 			h\fireRate = 0 
 		End If 
 		
 		If h\liberated Then
-			For p.player = Each player
-				h\x = lerp(h\x, p\x+h\targetPositionX, 0.1)
-				h\y = lerp(h\y, p\y+h\targetPositionY, 0.1)
-			Next
+			h\fireRate = h\fireRate + 1
+		
+			If h\dead = 0 Then 
+				For p.player = Each player
+					h\x = lerp(h\x, p\x+h\targetPositionX, 0.1)
+					h\y = lerp(h\y, p\y+h\targetPositionY, 0.1)
+				Next
+			End If
 			
-			For e.enemy = Each enemy = Each enemy
+			For e.enemy = Each enemy 				
 				If e\dead = 0 Then
-					
+					If collision(e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight, h\x, h\y, 24, 24) Then 
+						h\health = 0
+					End If
 				End If
 			Next
-			
+				
 			h\animationCount = h\animationCount + 1
 		Else
 			For p.player = Each player
@@ -490,7 +499,20 @@ Function updateHelper()
 			Next
 		End If
 		
-		If h\animationCount >= 4 Then
+		If h\dead = 0 Then 
+			For pr.projectile = Each projectile 
+				If collision(pr\x, pr\y, pr\size, pr\size, h\x, h\y, 24, 24) Then
+					If h\liberated And pr\enemy = 1 Or h\liberated = 0 And pr\enemy = 0 Then 
+						h\health = h\health - pr\damage
+						pr\destroy = 1
+					End If
+				End If
+			Next
+		End If
+		
+		If h\health <= 0 Then h\dead = 1
+		
+		If h\animationCount >= 4 And h\dead = 0 Then
 			h\currentFrame = h\currentFrame + 1
 			If h\currentFrame >= h\maxFrame Then h\currentFrame = 0
 			h\animationCount = 0
