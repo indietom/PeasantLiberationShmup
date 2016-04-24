@@ -427,6 +427,8 @@ Type helper
 	Field targetPositionX#
 	Field targetPositionY#
 	
+	Field hitCount
+	
 	Field imx
 	Field imy
 	
@@ -499,11 +501,12 @@ Function updateHelper()
 			Next
 		End If
 		
-		If h\dead = 0 Then 
+		If h\dead = 0 And h\hitCount <= 0 Then 
 			For pr.projectile = Each projectile 
 				If collision(pr\x, pr\y, pr\size, pr\size, h\x, h\y, 24, 24) Then
 					If h\liberated And pr\enemy = 1 Or h\liberated = 0 And pr\enemy = 0 Then 
 						h\health = h\health - pr\damage
+						h\hitCount = 1
 						pr\destroy = 1
 					End If
 				End If
@@ -511,6 +514,11 @@ Function updateHelper()
 		End If
 		
 		If h\health <= 0 Then h\dead = 1
+		
+		If h\hitCount >= 1 Then 
+			h\hitCount = h\hitCount + 1
+			If h\hitCount >= 4 Then h\hitCount = 0
+		End If
 		
 		If h\animationCount >= 4 And h\dead = 0 Then
 			h\currentFrame = h\currentFrame + 1
@@ -523,6 +531,10 @@ End Function
 Function drawHelper()
 	For h.helper = Each helper
 		DrawImageRect(spritesheet, h\x, h\y, h\imx, h\imy, 24, 24)	
+		If h\hitCount > 0 Then 
+			Color 255, 0, 0
+			Rect h\x, h\y, 24, 24
+		End If
 	Next
 End Function
 
