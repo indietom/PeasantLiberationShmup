@@ -1,13 +1,20 @@
 Const WIN_W=32*15, WIN_H=32*14
 
+Global frameRate = 60
+
 Global fullScreen = 2
 
 Graphics WIN_W, WIN_H, 8, fullScreen
 
 SeedRnd MilliSecs()
 
-Global frametimer=CreateTimer(60)
+Global frametimer=CreateTimer(frameRate)
 Global starttime=MilliSecs(),elapsedtime,fpscounter,curfps
+
+Function setFrameRateCap(cap)
+	frametimer=CreateTimer(cap)
+	starttime=MilliSecs()
+End Function
 
 Function collision(x, y, w, h, x2, y2, w2, h2)
 	If y >= y2 + h2 Then Return False 
@@ -110,12 +117,12 @@ Function updatePlayer()
 		p\movingToX = 0
 		p\movingToY = 0
 		
-		If KeyDown(p\leftKey) Then
+		If KeyDown(p\leftKey) And p\x >= p\speed Then
 			p\x = p\x - p\speed
 			p\movingToX = p\movingToX - p\speed
 		End If
 		
-		If KeyDown(p\rightKey) Then
+		If KeyDown(p\rightKey) And p\x <= WIN_W - 24 - p\speed Then
 			p\x = p\x + p\speed
 			p\movingToX = p\movingToX + p\speed
 		End If
@@ -136,14 +143,16 @@ Function updatePlayer()
 			End If
 		End If
 		
+		offsetX = lerp(offsetX, (Float(p\x - win_w/2)) * parallelProcent, 0.1)
+		
 		If p\destroy Then Delete p
 	Next
 End Function
 
 Function drawPlayer()
 	For p.player = Each player
-		DrawImageRect(spritesheet, p\x+p\shadowOffsetX, p\y+p\shadowOffsetY, frame(1, 24), p\imy, 24, 24)
-		DrawImageRect(spritesheet, p\x, p\y, p\imx, p\imy, 24, 24)
+		DrawImageRect(spritesheet, p\x+p\shadowOffsetX-offsetX, p\y+p\shadowOffsetY, frame(1, 24), p\imy, 24, 24)
+		DrawImageRect(spritesheet, p\x-offsetX, p\y, p\imx, p\imy, 24, 24)
 		Color 255, 255, 255
 	Next
 End Function
@@ -214,7 +223,7 @@ Function updateProjectile()
 		p\x = p\x + p\velX
 		p\y = p\y + p\velY
 		
-		If p\x < -p\size Or p\x >= WIN_W Or p\y < -p\size Or p\y > WIN_H Then p\destroy = 1 
+		If p\x - offsetX < -p\size Or p\x - offsetX >= WIN_W Or p\y < -p\size Or p\y > WIN_H Then p\destroy = 1 
 		
 		If p\destroy Then Delete p
 	Next
@@ -222,7 +231,7 @@ End Function
 
 Function drawProjectile()
 	For p.projectile = Each projectile
-		DrawImageRect(spritesheet, p\x, p\y, p\imx, p\imy, p\size, p\size)
+		DrawImageRect(spritesheet, p\x-offsetX, p\y, p\imx, p\imy, p\size, p\size)
 	Next
 End Function
 
@@ -299,6 +308,9 @@ Function addEnemy(x2#, y2#, typeOf2)
 		e\hitBoxY = 5
 		e\hitBoxWidth = 12
 		e\hitBoxHeight = 17
+		
+		e\maxAnimationCount = 4
+		e\maxFrame = 4
 	End If
 End Function
 
@@ -349,6 +361,16 @@ Function updateEnemy()
 			
 			e\imx = e\deadImx
 			e\imy = e\deadImy
+		Else
+			If e\maxFrame > 0 Then
+				e\animationCount = e\animationCount + 1
+				If e\animationCount >= e\maxAnimationCount Then
+					e\currentFrame = e\currentFrame + 1
+					If e\currentFrame >= e\maxFrame Then e\currentFrame = 0
+					e\animationCount = 0
+				End If
+				e\imx = frame(e\currentFrame, e\width)
+			End If
 		End If
 		
 		If e\destroy Then Delete e
@@ -357,10 +379,10 @@ End Function
 
 Function drawEnemy()
 	For e.enemy = Each enemy
-		DrawImageRect(spritesheet, e\x, e\y, e\imx, e\imy, e\width, e\height)
+		DrawImageRect(spritesheet, e\x-offsetX, e\y, e\imx, e\imy, e\width, e\height)
 		If e\hitCount > 0 Then 
 			Color 255, 0, 0
-			Rect e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight
+			Rect e\x+e\hitBoxX-offsetX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight
 		End If 
 	Next
 End Function 
@@ -379,30 +401,29 @@ Function aimAtNearestEnemy#(x2#, y2#)
 	Local ex#
 	Local ey#
 	
-	For e.enemy = Each enemy
-		For e2.enemy = Each enemy
-			If e <> e2 Then
-				If e\dead = 0 And e2\dead = 0 Then 
-					If distanceTo(e\x, e\y, x2, y2) < distanceTo(e2\x, e2\y, x2, y2) Then
-						ex = e\x
-						ey = e\y
+	If enemiesAlive() > 1 Then 
+		For e.enemy = Each enemy
+			For e2.enemy = Each enemy
+				If e <> e2 Then
+					If e\dead = 0 And e2\dead = 0 Then 
+						If distanceTo(e\x, e\y, x2, y2) < distanceTo(e2\x, e2\y, x2, y2) Then
+							ex = e\x
+							ey = e\y
+						End If
 					End If
-				End If
-				
-				If enemiesAlive() = 1 Then
-					If e\dead = 0 Then 
-						ex = e\x
-						ey = e\y
-					End If
-					
-					If e2\dead = 0 Then
-						ex = e2\x
-						ey = e2\y
-					End If
-				End If
-			End If	
+				End If	
+			Next
 		Next
-	Next
+	End If
+	
+	If enemiesAlive() = 1 Then
+		For e.enemy = Each enemy
+			If e\dead = 0 Then
+				ex = e\x
+				ey = e\y
+			End If 
+		Next
+	End If
 	
 	Return ATan2(ey - y2, ex - x2)
 End Function 
@@ -427,6 +448,11 @@ Type helper
 	Field targetPositionX#
 	Field targetPositionY#
 	
+	Field hitBoxX
+	Field hitBoxY
+	Field hitBoxWidth
+	Field hitBoxHeight
+	
 	Field hitCount
 	
 	Field imx
@@ -447,10 +473,10 @@ Function addHelper(x2#, y2#)
 	
 	h\health = 2
 	
-	h\maxFireRate = 16
+	h\maxFireRate = 16*4
 	
-	Local targetDistance# = Rnd(16, 32)
-	Local targetAngle# = Rnd(-360, 0)
+	Local targetDistance# = Rnd(16, 64)
+	Local targetAngle# = -45 * Rand(8)
 	
 	h\targetPositionX = Cos(targetAngle) * targetDistance
 	h\targetPositionY = Sin(targetAngle) * targetDistance
@@ -459,6 +485,11 @@ Function addHelper(x2#, y2#)
 	h\imy = frame(0, 24)
 	
 	h\maxFrame = 4
+	
+	h\hitBoxX = 6
+	h\hitBoxY = 5
+	h\hitBoxWidth = 12
+	h\hitBoxHeight = 17
 End Function
 
 Function updateHelper()
@@ -470,7 +501,7 @@ Function updateHelper()
 		End If
 		
 		If h\fireRate >= h\maxFireRate And h\dead = 0 Then
-			If enemiesAlive() > 0 Then addProjectile(h\x, h\y, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
+			If enemiesAlive() > 0 Then addProjectile(h\x+12-2, h\y+12-2, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
 			h\fireRate = 0 
 		End If 
 		
@@ -486,7 +517,7 @@ Function updateHelper()
 			
 			For e.enemy = Each enemy 				
 				If e\dead = 0 Then
-					If collision(e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight, h\x, h\y, 24, 24) Then 
+					If collision(e\x+e\hitBoxX, e\y+e\hitBoxY, e\hitBoxWidth, e\hitBoxHeight, h\x+h\hitboxX, h\y+h\hitBoxY, h\hitBoxWidth, h\hitboxHeight) Then 
 						h\health = 0
 					End If
 				End If
@@ -503,7 +534,7 @@ Function updateHelper()
 		
 		If h\dead = 0 And h\hitCount <= 0 Then 
 			For pr.projectile = Each projectile 
-				If collision(pr\x, pr\y, pr\size, pr\size, h\x, h\y, 24, 24) Then
+				If collision(pr\x, pr\y, pr\size, pr\size, h\x+h\hitboxX, h\y+h\hitBoxY, h\hitBoxWidth, h\hitboxHeight) Then
 					If h\liberated And pr\enemy = 1 Or h\liberated = 0 And pr\enemy = 0 Then 
 						h\health = h\health - pr\damage
 						h\hitCount = 1
@@ -530,13 +561,16 @@ End Function
 
 Function drawHelper()
 	For h.helper = Each helper
-		DrawImageRect(spritesheet, h\x, h\y, h\imx, h\imy, 24, 24)	
+		DrawImageRect(spritesheet, h\x-offsetX, h\y, h\imx, h\imy, 24, 24)	
 		If h\hitCount > 0 Then 
 			Color 255, 0, 0
-			Rect h\x, h\y, 24, 24
+			Rect h\x+h\hitboxX-offsetX, h\y+h\hitBoxY, h\hitBoxWidth, h\hitboxHeight
 		End If
 	Next
 End Function
+
+Global offsetX#
+Global parallelProcent# = 0.5
 
 Function update()
 	updatePlayer()
@@ -558,7 +592,8 @@ While Not KeyHit(1)
 	Cls 
 		WaitTimer(frametimer)
 		Color 102, 255, 119
-		Rect 0, 0, WIN_W, WIN_H
+		Rect -offsetX - (Float(WIN_W) * parallelProcent), 0, WIN_W+(Float(WIN_W) * parallelProcent)*2, WIN_H
+		;Rect -offsetX, 0, WIN_W, WIN_H
 		draw()
 		update()
 		
