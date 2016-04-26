@@ -569,6 +569,58 @@ Function drawHelper()
 	Next
 End Function
 
+Const TREE = 0
+Const TREE_WITH_APPLE = 1
+
+Type backgroundObject
+	Field x#
+	Field y#
+	
+	Field imx
+	Field imy
+	Field width
+	Field height
+	
+	Field typeOf
+	
+	Field destroy 
+End Type
+
+Function addBackgroundObject(x2#, y2#, typeOf2)
+	b.backgroundObject = New backgroundObject
+	b\x = x2
+	b\y = y2
+	
+	b\typeOf = typeOf2
+	
+	If b\typeOf = TREE Then
+		b\imx = 251
+		b\imy = 1
+		b\width = 24
+		b\height = 48
+	End If
+	
+	If b\typeOf = TREE_WITH_APPLE Then
+		b\imx = 251
+		b\imy = 50
+		b\width = 24
+		b\height = 48
+	End If
+End Function
+
+Function updateBackgroundObject()
+	For b.backgroundObject = Each backgroundObject
+		
+		If b\destroy Then Delete b
+	Next
+End Function
+
+Function drawBackgroundObject()
+	For b.backgroundObject = Each backgroundObject
+		DrawImageRect(spritesheet, b\x-offsetX, b\y, b\imx, b\imy, b\width, b\height)
+	Next
+End Function 
+
 Global offsetX#
 Global parallelProcent# = 0.5
 
@@ -577,9 +629,11 @@ Function update()
 	updateProjectile()
 	updateEnemy()
 	updateHelper()
+	updateBackgroundObject()
 End Function
 
 Function draw()
+	drawBackgroundObject()
 	drawEnemy()
 	drawHelper()
 	drawProjectile()
@@ -587,6 +641,10 @@ Function draw()
 End Function 
 
 addPlayer(WIN_W/2, WIN_H/2)
+
+For i = 0 To 50 
+	addBackgroundObject(Rnd(-300, WIN_W+300), Rnd(WIN_H), Rand(0, 1))
+Next
 
 While Not KeyHit(1)
 	Cls 
