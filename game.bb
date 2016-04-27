@@ -621,6 +621,24 @@ Function drawBackgroundObject()
 	Next
 End Function 
 
+Type building
+	Field x#
+	Field y#
+	
+	Field imx
+	Field imy
+	Field width
+	Field height
+	
+	Field deadImx
+	Field deadImy
+	
+	Field dead
+	Field health
+	
+	Field destroy
+End Type
+
 Global offsetX#
 Global parallelProcent# = 0.5
 
