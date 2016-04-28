@@ -621,6 +621,8 @@ Function drawBackgroundObject()
 	Next
 End Function 
 
+Const HOUSE = 0
+
 Type building
 	Field x#
 	Field y#
@@ -638,6 +640,18 @@ Type building
 	
 	Field destroy
 End Type
+
+Function addBuilding()
+
+End Function
+
+Function updateBuilding()
+
+End Function
+
+Function drawBuilding()
+
+End Function
 
 Global offsetX#
 Global parallelProcent# = 0.5
