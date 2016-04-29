@@ -650,7 +650,9 @@ Function updateBuilding()
 End Function
 
 Function drawBuilding()
-
+	For b.building = Each building
+		DrawImageRect(spritesheet, b\x-offsetX, b\y, b\imx, b\imy, b\width, b\height)
+	Next
 End Function
 
 Global offsetX#
