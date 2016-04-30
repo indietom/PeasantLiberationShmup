@@ -610,7 +610,6 @@ End Function
 
 Function updateBackgroundObject()
 	For b.backgroundObject = Each backgroundObject
-		
 		If b\destroy Then Delete b
 	Next
 End Function
@@ -646,7 +645,18 @@ Function addBuilding()
 End Function
 
 Function updateBuilding()
-
+	For b.building = Each building
+		If b\health <= 0 Then
+			b\dead = 1	
+		End If
+		
+		If b\dead Then 
+			b\imx = b\deadImx
+			b\imy = b\deadImy
+		End If
+		
+		If b\destroy Then Delete b
+	Next
 End Function
 
 Function drawBuilding()
@@ -664,9 +674,11 @@ Function update()
 	updateEnemy()
 	updateHelper()
 	updateBackgroundObject()
+	updateBuilding()
 End Function
 
 Function draw()
+	drawBuilding()
 	drawBackgroundObject()
 	drawEnemy()
 	drawHelper()
