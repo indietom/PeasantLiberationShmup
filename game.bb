@@ -655,6 +655,15 @@ Function updateBuilding()
 			b\imy = b\deadImy
 		End If
 		
+		For p.projectile = Each projectile
+			If p\enemy = 0 Then
+				If collision(p\x, p\y, p\size, p\size, b\x, b\y, b\width, b\height) Then
+					b\health = b\health - p\damage
+					p\destroy = 1
+				End If
+			End If
+		Next
+		
 		If b\destroy Then Delete b
 	Next
 End Function
