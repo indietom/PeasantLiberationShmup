@@ -65,6 +65,8 @@ Type player
 	Field score
 	
 	Field gunType
+	Field fireRate
+	Field maxFireRate
 	
 	Field shadowOffsetX
 	Field shadowOffsetY
@@ -96,6 +98,8 @@ Function addPlayer(x2, y2)
 	p\shadowOffsetX = Cos(-360+45) * 32
 	p\shadowOffsetY = Sin(-360+45) * 32
 	
+	p\maxFireRate = 8
+	
 	p\leftKey = 203
 	p\rightKey = 205
 	p\upKey = 200
@@ -117,12 +121,12 @@ Function updatePlayer()
 		p\movingToX = 0
 		p\movingToY = 0
 		
-		If KeyDown(p\leftKey) And p\x >= p\speed Then
+		If KeyDown(p\leftKey) And p\x >= -levelSize/4 + p\speed Then
 			p\x = p\x - p\speed
 			p\movingToX = p\movingToX - p\speed
 		End If
 		
-		If KeyDown(p\rightKey) And p\x <= WIN_W - 24 - p\speed Then
+		If KeyDown(p\rightKey) And p\x <= levelSize - 24*11 - 12 - p\speed Then
 			p\x = p\x + p\speed
 			p\movingToX = p\movingToX + p\speed
 		End If
@@ -137,11 +141,15 @@ Function updatePlayer()
 			p\movingToY = p\movingToY + p\speed
 		End If
 		
-		If KeyHit(p\shootKey) Then
+		If KeyHit(p\shootKey) And p\fireRate <= 0 Then
 			If p\gunType = 0 Then
 				addProjectile(p\x+12-4, p\y+12-4, -90, p\speed+4, 1, frame(2, 24), 51, 8, 0)
 			End If
+			p\fireRate = 1
 		End If
+		
+		If p\fireRate >= 1 Then p\fireRate = p\fireRate +1
+		If p\fireRate >= p\maxFireRate Then p\fireRate = 0
 		
 		offsetX = lerp(offsetX, (Float(p\x - win_w/2)) * parallelProcent, 0.1)
 		
@@ -173,6 +181,116 @@ Function getAngleToPlayer#(x2#, y2#, time)
 	Next
 	
 	Return ATan2(py-y2, px-x2)
+End Function
+
+Function waveY#(t#, w#, amp#)
+	Return amp * Sin(t*w)
+End Function 
+
+Function getPeriodTime(w#, amp#)
+	Local top1# = -1
+	Local top2# = -1
+	
+	For i# = 0 To 999 Step 0.01
+		If waveY(i, w, amp) = amp Then
+			top1 = i
+			i = 999
+		End If
+	Next
+	
+	For i# = 0 To 999 Step 0.01
+		If waveY(i, w, amp) = amp Then
+			top2 = i
+			i = 999
+		End If
+	Next
+	
+	Return top2*2
+End Function 
+
+Global powerUpAmp# = 10
+Global powerUpW# = 5
+
+Dim waveFormPowerUp#(getPeriodTime(powerUpW, powerUpAmp))
+
+Function setupwaveFormPowerUp()
+	For i = 0 To getPeriodTime(powerUpW, powerUpAmp)
+		waveFormPowerUp(i) = waveY#(i, powerUpW, powerUpAmp)
+	Next
+End Function
+
+Global powerUpWaveLength = getPeriodTime(powerUpW, powerUpAmp)
+
+setupwaveFormPowerUp() 
+
+Type powerUp
+	Field x#
+	Field y#
+	
+	Field shadowOffsetX#
+	Field shadowOffsetY#
+	
+	Field imx
+	Field imy
+	
+	Field iconImx
+	Field iconImy
+	
+	Field displayX#
+	Field displayY#
+	
+	Field waveOffset#
+	Field waveIndex
+	
+	Field typeOf
+	
+	Field destroy
+End Type
+
+Function addPowerUp(x2#, y2#, typeOf2)
+	p.powerUp = New powerUp
+	p\x = x2
+	p\y = y2
+	
+	p\typeOf = typeOf2
+	
+	p\imx = 26
+	p\imy = 76
+	
+	p\iconImx = frame(p\typeOf, 18)
+	p\iconImy = 101
+	
+	p\shadowOffsetX = 0;Cos(-360+45) * 25
+	p\shadowOffsetY = Sin(-360+45) * 48
+	
+	p\displayX = 4
+	p\displayY = 6
+End Function
+
+Function updatePowerUp()
+	For p.powerUp = Each powerUp
+		If p\waveIndex > powerUpWaveLength Then p\waveIndex = 0
+		p\waveOffset = waveFormPowerUp(p\waveIndex)
+		p\waveIndex = p\waveIndex + 1
+		
+		For pl.player = Each player
+			If collision(pl\x, pl\y, 24, 24, p\x, p\y+p\waveOffset, 24, 24) Then
+				pl\gunType = p\typeOf
+				p\destroy = 1
+			End If
+		Next
+		
+		If p\destroy Then Delete p
+	Next
+End Function
+
+Function drawPowerUp()
+	For p.powerUp = Each powerUp
+		Color 0, 0, 0
+		Oval p\x-offsetX+p\shadowOffsetX+p\waveOffset/2, p\y + p\shadowOffsetY+p\waveOffset/2, 24-p\waveOffset, 24/2-p\waveOffset
+		DrawImageRect(spritesheet, p\x-offsetX+p\displayX, p\y+p\displayY+p\waveOffset, p\iconImx, p\iconImy, 18, 13)
+		DrawImageRect(spritesheet, p\x-offsetX, p\y+p\waveOffset, p\imx, p\imy, 24, 24)
+	Next
 End Function
 
 Type projectile
@@ -440,6 +558,7 @@ Type helper
 	Field health
 	Field dead
 	
+	Field weaponType
 	Field fireRate
 	Field maxFireRate
 	
@@ -501,7 +620,9 @@ Function updateHelper()
 		End If
 		
 		If h\fireRate >= h\maxFireRate And h\dead = 0 Then
-			If enemiesAlive() > 0 Then addProjectile(h\x+12-2, h\y+12-2, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
+			If enemiesAlive() > 0 Then
+				If h\weaponType = 0 Then addProjectile(h\x+12-2, h\y+12-2, aimAtNearestEnemy(h\x, h\y)+Rnd(-8, 8), 5, 1, frame(3, 24), frame(2, 24), 4, 0)
+			End If
 			h\fireRate = 0 
 		End If 
 		
@@ -526,9 +647,11 @@ Function updateHelper()
 			h\animationCount = h\animationCount + 1
 		Else
 			For p.player = Each player
-				If collision(p\x, p\y, 24, 24, h\x, h\y, 24, 24) Then
-					h\liberated = 1
-				End If
+				If h\dead = 0 Then 
+					If collision(p\x, p\y, 24, 24, h\x, h\y, 24, 24) Then
+						h\liberated = 1
+					End If
+				End If 
 			Next
 		End If
 		
@@ -537,7 +660,7 @@ Function updateHelper()
 				If collision(pr\x, pr\y, pr\size, pr\size, h\x+h\hitboxX, h\y+h\hitBoxY, h\hitBoxWidth, h\hitboxHeight) Then
 					If h\liberated And pr\enemy = 1 Or h\liberated = 0 And pr\enemy = 0 Then 
 						h\health = h\health - pr\damage
-						h\hitCount = 1
+						If h\health > 0 Then h\hitCount = 1
 						pr\destroy = 1
 					End If
 				End If
@@ -562,6 +685,7 @@ End Function
 Function drawHelper()
 	For h.helper = Each helper
 		DrawImageRect(spritesheet, h\x-offsetX, h\y, h\imx, h\imy, 24, 24)	
+		If h\liberated Then DrawImageRect(spritesheet, h\x-offsetX+12-6, h\y+12, 76, 51, 12, 4)
 		If h\hitCount > 0 Then 
 			Color 255, 0, 0
 			Rect h\x+h\hitboxX-offsetX, h\y+h\hitBoxY, h\hitBoxWidth, h\hitboxHeight
@@ -637,11 +761,29 @@ Type building
 	Field dead
 	Field health
 	
+	Field typeOf
+	
 	Field destroy
 End Type
 
-Function addBuilding()
-
+Function addBuilding(x2#, y2#, typeOf2)
+	b.building = New building
+	b\x = x2
+	b\y = y2
+	
+	b\typeOf = typeOf2
+	
+	If b\typeOf = HOUSE Then
+		b\imx = 151
+		b\imy = 50
+		b\width = 48
+		b\height = 32
+		
+		b\deadImx = 200
+		b\deadImy = 50
+		
+		b\health = 3
+	End If
 End Function
 
 Function updateBuilding()
@@ -655,11 +797,21 @@ Function updateBuilding()
 			b\imy = b\deadImy
 		End If
 		
-		For p.projectile = Each projectile
-			If p\enemy = 0 Then
-				If collision(p\x, p\y, p\size, p\size, b\x, b\y, b\width, b\height) Then
-					b\health = b\health - p\damage
-					p\destroy = 1
+		If b\dead = 0 Then 
+			For p.projectile = Each projectile
+				If p\enemy = 0 Then
+					If collision(p\x, p\y, p\size, p\size, b\x, b\y, b\width, b\height) Then
+						b\health = b\health - p\damage
+						p\destroy = 1
+					End If
+				End If
+			Next                     
+		End If
+		
+		For h.helper = Each helper
+			If h\dead = 0 And h\liberated = 1
+				If collision(h\x+h\hitBoxX, h\y+hitBoxY, h\hitBoxWidth, h\hitBoxHeight, b\x, b\y, b\width, b\height) Then
+					h\dead = 1
 				End If
 			End If
 		Next
@@ -684,34 +836,45 @@ Function update()
 	updateHelper()
 	updateBackgroundObject()
 	updateBuilding()
+	updatePowerUp()
 End Function
 
 Function draw()
+	Color 102, 255, 119
+	Rect -offsetX - (Float(WIN_W) * parallelProcent), 0, levelSize, WIN_H
+
 	drawBuilding()
 	drawBackgroundObject()
 	drawEnemy()
 	drawHelper()
 	drawProjectile()
+	drawPowerUp()
 	drawPlayer()
 End Function 
 
 addPlayer(WIN_W/2, WIN_H/2)
 
-For i = 0 To 50 
+For i = 0 To 10 
 	addBackgroundObject(Rnd(-300, WIN_W+300), Rnd(WIN_H), Rand(0, 1))
 Next
 
+Global time 
+
+addPowerUp(200, 200, 1)
+
+Global levelSize = WIN_W+(Float(WIN_W) * parallelProcent)*2
+
 While Not KeyHit(1)
-	Cls 
+	;Cls 
 		WaitTimer(frametimer)
-		Color 102, 255, 119
-		Rect -offsetX - (Float(WIN_W) * parallelProcent), 0, WIN_W+(Float(WIN_W) * parallelProcent)*2, WIN_H
 		;Rect -offsetX, 0, WIN_W, WIN_H
 		draw()
 		update()
 		
+		time = time + 1
+				
 		If MouseHit(1) Then addEnemy(MouseX(), MouseY(), KNIGHT)
-		If MouseHit(2) Then addHelper(MouseX(), MouseY())
+		If MouseHit(2) Then addHelper(MouseX(), MouseY()) ;addBuilding(MouseX(), MouseY(), HOUSE)
 	Flip
 Wend
 
