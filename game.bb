@@ -191,14 +191,14 @@ Function getPeriodTime(w#, amp#)
 	Local top1# = -1
 	Local top2# = -1
 	
-	For i# = 0 To 999 Step 0.01
+	For i# = 0 To 255 Step 0.01
 		If waveY(i, w, amp) = amp Then
 			top1 = i
 			i = 999
 		End If
 	Next
 	
-	For i# = 0 To 999 Step 0.01
+	For i# = 0 To 255 Step 0.01
 		If waveY(i, w, amp) = amp Then
 			top2 = i
 			i = 999
@@ -261,7 +261,7 @@ Function addPowerUp(x2#, y2#, typeOf2)
 	p\iconImy = 101
 	
 	p\shadowOffsetX = 0;Cos(-360+45) * 25
-	p\shadowOffsetY = Sin(-360+45) * 48
+	p\shadowOffsetY = -8 + Sin(-360+45) * 48
 	
 	p\displayX = 4
 	p\displayY = 6
@@ -445,7 +445,7 @@ Function updateEnemy()
 				End If
 			Next
 		End If
-		
+
 		If e\hitCount >= 1 Then
 			e\hitCount = e\hitCount + 1
 			If e\hitCount >= 4 Then e\hitCount = 0
@@ -693,6 +693,130 @@ Function drawHelper()
 	Next
 End Function
 
+Const GRASS_BIOME = 0
+
+Global worldSpeed
+
+Type tile
+	Field x
+	Field y
+	
+	Field imx
+	Field imy
+	
+	Field biomeOffsetX
+	Field biomeOffsetY
+	
+	Field size
+	
+	Field typeOf
+	Field biome
+	
+	Field draw 
+	
+	Field destroy
+End Type 
+
+Function addTile(x2, y2, typeOf2, biome2)
+	t.tile = New tile
+	t\x = x2
+	t\y = y2
+	
+	t\size = 24
+	
+	t\typeOf = typeOf2
+	t\biome = biome2
+	
+	If t\biome = GRASS_BIOME Then 
+		t\biomeOffsetY = frame(5, 24) 
+	End If
+	
+	t\draw = 1
+	
+	t\imx = frame(t\typeOf, t\size)+t\biomeOffsetX
+	t\imy = t\biomeOffsetY
+End Function
+
+Function updateTile()
+	For t.tile = Each tile
+		If t\y-offsetY <= -t\size Then 
+			t\draw = 0
+		Else
+			t\draw = 1
+		End If
+	
+		If t\destroy Then Delete t
+	Next
+End Function
+
+Function drawTile()
+	For t.tile = Each tile
+		If t\draw Then DrawImageRect(spritesheet, t\x-offsetX, t\y-offsetY, t\imx, t\imy, t\size, t\size)
+	Next
+End Function
+
+Function getIndex$(t$, n%)
+	Return Mid(t, n+1, 1)
+End Function
+
+Function getStringLength(t$)
+	Local length
+	
+	For i = 0 To 255
+		If getIndex(t, i) = "" Then
+			length = i
+			i = 256
+		End If
+	Next
+	
+	Return length
+End Function
+
+Function getFileLength(path$)
+	Local file = ReadFile(path)
+	Local length%
+	
+	For i = 0 To 255
+		Local t$ = ReadLine(file)
+		If getStringLength(t) <= 1 Then 
+			length = i
+			i = 256
+		End If
+	Next
+	
+	CloseFile(file)
+	
+	Return length
+End Function
+
+Function spawnLevel(path$, ePath$, x, y, biome, size)
+	Local levelWidth
+	Local levelLength = getFileLength(path)
+	
+	Local file = ReadFile(path)
+	
+	For i = 0 To levelLength
+		Local l$ = ReadLine(file)
+		For j = 0 To getStringLength(l)
+			addTile(x+j*size, y+i*size, getIndex(l, j), biome)
+		Next
+	Next 
+	
+	CloseFile(path)
+	
+		
+	Local fileE = ReadFile(ePath)
+	
+	For i = 0 To levelLength
+		Local lE$ = ReadLine(fileE)
+		For j = 0 To getStringLength(lE)
+			addEnemy(x+j*size, y+i*size, Int(getIndex(lE, j))-1)
+		Next
+	Next 
+	
+	CloseFile(ePath)
+End Function 
+
 Const TREE = 0
 Const TREE_WITH_APPLE = 1
 
@@ -827,6 +951,7 @@ Function drawBuilding()
 End Function
 
 Global offsetX#
+Global offsetY# 
 Global parallelProcent# = 0.5
 
 Function update()
@@ -837,12 +962,14 @@ Function update()
 	updateBackgroundObject()
 	updateBuilding()
 	updatePowerUp()
+	updateTile()
 End Function
 
 Function draw()
 	Color 102, 255, 119
 	Rect -offsetX - (Float(WIN_W) * parallelProcent), 0, levelSize, WIN_H
-
+	drawTile()
+	
 	drawBuilding()
 	drawBackgroundObject()
 	drawEnemy()
@@ -861,6 +988,8 @@ Next
 Global time 
 
 addPowerUp(200, 200, 1)
+
+spawnLevel("test.txt", "testE.txt",0, 0, GRASS_BIOME, 24)
 
 Global levelSize = WIN_W+(Float(WIN_W) * parallelProcent)*2
 
